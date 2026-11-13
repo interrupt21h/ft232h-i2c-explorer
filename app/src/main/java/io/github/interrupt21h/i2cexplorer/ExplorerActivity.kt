@@ -136,7 +136,18 @@ class ExplorerActivity : Activity() {
             setOnClickListener { onClick() }
         }
     private fun render() {
-        root = column().apply { setBackgroundColor(BG) }
+        root = column().apply {
+            setBackgroundColor(BG)
+            // Android 15+ enforces edge-to-edge for apps targeting API 35.
+            // Keep all controls below the status bar and above gesture navigation.
+            setOnApplyWindowInsetsListener { view, insets ->
+                val bars = insets.getInsets(
+                    WindowInsets.Type.statusBars() or WindowInsets.Type.navigationBars()
+                )
+                view.setPadding(bars.left, bars.top, bars.right, bars.bottom)
+                insets
+            }
+        }
         val heading = column().apply { setPadding(dp(20), dp(24), dp(20), dp(16)) }
         heading.addView(label("I²C EXPLORER", 12f, ACCENT, true))
         gap(heading, 5)

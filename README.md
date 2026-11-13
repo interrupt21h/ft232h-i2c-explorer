@@ -27,7 +27,7 @@ Check the actual breakout and target electrical characteristics before connectin
 
 ## Limitations
 
-The FT232H driver is experimental and has **not** been validated against physical hardware. GPIO-driven MPSSE I²C is slower than hardware-clocked I²C. Clock stretching and multi-master arbitration are not supported. Scanning may affect certain devices. Register reads/writes, full identification probes, export and logic tracing remain future work.
+The FT232H driver is experimental and has **not** been validated against physical hardware. GPIO-driven MPSSE I²C is slower than hardware-clocked I²C. Clock stretching and multi-master arbitration are not supported. Scanning may affect certain devices. Limited read-only register diagnostics and an explicitly confirmed OLED display toggle are implemented. Generic register editor, full identification probes, export and logic tracing remain future work.
 
 ## Security and permissions
 
@@ -44,3 +44,19 @@ No root, network access or account required. USB permission is requested when co
 The address scan sends an I²C address probe and checks ACK. It cannot reliably identify the exact OLED controller, panel dimensions, or distinguish two devices sharing an address. The e-paper module requires a future SPI mode; it cannot be discovered by I²C scanning.
 
 **Hardware validation pending:** No physical FT232H or target modules have been connected to this project in CI. USB behavior, SDA input sampling, clock speed and real device discovery are not verified.
+
+## Device-specific tests
+
+Open **Devices**, select an address, then **Device-specific diagnostics**.
+
+- BME280/BMP280: read chip ID (0xD0) at 0x76 or 0x77.
+- MPU6050: read WHO_AM_I (0x75) at 0x68 or 0x69.
+- INA219: read configuration (0x00) at 0x40.
+- ADS1115: read conversion register (0x00) at 0x48.
+- MCP23017: read IODIRA (0x00) at 0x20.
+- DS3231: read status (0x0F) at 0x68.
+- SSD1306-compatible OLED at 0x3C or 0x3D: **opt-in write test**, sends display OFF then ON, with confirmation and visual verification.
+
+Tests run only with connected hardware. These are address-specific example recipes, not automatic chip identification. An address match alone never proves device identity. The OLED test modifies device state and should only be used on a known OLED. Si47xx command/response diagnostics and SPI e-paper tests are not implemented.
+
+**Hardware caveat:** FT232H read transactions and USB status handling have not yet been tested on real hardware; diagnostic success is not guaranteed.

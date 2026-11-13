@@ -60,3 +60,13 @@ Open **Devices**, select an address, then **Device-specific diagnostics**.
 Tests run only with connected hardware. These are address-specific example recipes, not automatic chip identification. An address match alone never proves device identity. The OLED test modifies device state and should only be used on a known OLED. Si47xx command/response diagnostics and SPI e-paper tests are not implemented.
 
 **Hardware caveat:** FT232H read transactions and USB status handling have not yet been tested on real hardware; diagnostic success is not guaranteed.
+
+## Reusable diagnostic framework
+
+The device inspector now includes declarative read-only suites from `DiagnosticCatalog`. Each suite specifies supported addresses, register reads, expected byte values (when available), and explanatory notes. `DiagnosticEngine` runs these through a `DiagnosticBus` abstraction and produces PASS / FAIL / INFO / ERROR step results, a transaction transcript, and a versioned JSON report. Use **Copy JSON** in the results dialog to export to the clipboard.
+
+Initial suites: BME280/BMP280, MPU6050, DS3231, ADS1115/ADS1015, INA219, MCP23017, VL53L0X, and availability notes for SSD1306, Si4713, and 24xx EEPROM. Suites with no safe generic read remain informational; they do not send arbitrary commands. The existing OLED visual test remains separate and requires confirmation.
+
+`DiagnosticEngineTest` uses a fake transport to exercise positive/negative IDs, errors, unsupported tests and invalid addresses without USB hardware. The GitHub Actions workflow runs JVM unit tests before building the APK.
+
+**Known limitations:** hardware read timing, actual ACK responses and GPIO-level behavior are unverified. A PASS means the observed value matches a known expectation, not a cryptographic or definitive device identification. The transcript records requested reads and responses, not electrical bus waveforms.

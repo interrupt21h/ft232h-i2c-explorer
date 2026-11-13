@@ -141,10 +141,20 @@ class ExplorerActivity : Activity() {
             // Android 15+ enforces edge-to-edge for apps targeting API 35.
             // Keep all controls below the status bar and above gesture navigation.
             setOnApplyWindowInsetsListener { view, insets ->
-                val bars = insets.getInsets(
-                    WindowInsets.Type.statusBars() or WindowInsets.Type.navigationBars()
-                )
-                view.setPadding(bars.left, bars.top, bars.right, bars.bottom)
+                if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.R) {
+                    val bars = insets.getInsets(
+                        WindowInsets.Type.statusBars() or WindowInsets.Type.navigationBars()
+                    )
+                    view.setPadding(bars.left, bars.top, bars.right, bars.bottom)
+                } else {
+                    @Suppress("DEPRECATION")
+                    view.setPadding(
+                        insets.systemWindowInsetLeft,
+                        insets.systemWindowInsetTop,
+                        insets.systemWindowInsetRight,
+                        insets.systemWindowInsetBottom
+                    )
+                }
                 insets
             }
         }

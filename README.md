@@ -32,3 +32,15 @@ The FT232H driver is experimental and has **not** been validated against physica
 ## Security and permissions
 
 No root, network access or account required. USB permission is requested when connecting a device. Demo mode is available without USB hardware.
+
+## Display compatibility
+
+| Board | Protocol | Scan address | Notes |
+| --- | --- | --- | --- |
+| HiLetgo 0.96-inch 128×64 SSD1306 OLED | I²C | Usually 0x3C or 0x3D | Requires 4-pin GND/VCC/SCL/SDA wiring |
+| DSD TECH 0.91-inch 128×32 OLED | I²C | Usually 0x3C or 0x3D | Same address does not reveal resolution |
+| LAFVIN 2.13-inch 250×122 e-paper HAT | SPI | Not applicable | DIN/CLK/CS/DC/RST/BUSY; SPI driver is not implemented |
+
+The address scan sends an I²C address probe and checks ACK. It cannot reliably identify the exact OLED controller, panel dimensions, or distinguish two devices sharing an address. The e-paper module requires a future SPI mode; it cannot be discovered by I²C scanning.
+
+**Hardware validation pending:** No physical FT232H or target modules have been connected to this project in CI. USB behavior, SDA input sampling, clock speed and real device discovery are not verified.

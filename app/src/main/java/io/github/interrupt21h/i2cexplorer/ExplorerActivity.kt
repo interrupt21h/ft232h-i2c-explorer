@@ -168,7 +168,7 @@ class ExplorerActivity : Activity() {
         heading.addView(status)
         root.addView(heading)
         val nav = row().apply { setPadding(dp(12), 0, dp(12), dp(12)) }
-        listOf("Bus scan", "Devices", "Guide").forEachIndexed { index, title ->
+        listOf("I²C scan", "I²C devices", "SPI devices", "Guide").forEachIndexed { index, title ->
             val t = label(title, 14f, if (tab == index) ACCENT else MUTED, tab == index).apply {
                 gravity = Gravity.CENTER; setPadding(dp(8), dp(12), dp(8), dp(12))
                 background = rounded(if (tab == index) PANEL else BG, 10)
@@ -181,7 +181,7 @@ class ExplorerActivity : Activity() {
         page = column().apply { setPadding(dp(16), dp(4), dp(16), dp(24)) }
         scroll.addView(page); root.addView(scroll, LinearLayout.LayoutParams(-1, 0, 1f))
         setContentView(root)
-        when (tab) { 0 -> scanPage(); 1 -> devicePage(); else -> guidePage() }
+        when (tab) { 0 -> scanPage(); 1 -> devicePage(); 2 -> spiPage(); else -> guidePage() }
     }
     private fun scanPage() {
         panel(page, "Connection") { p ->
@@ -301,6 +301,78 @@ class ExplorerActivity : Activity() {
         }
         panel(host, "Identification policy") { p ->
             p.addView(label("Automatic identification is intentionally conservative. No registers are read or written during address scans. Device-specific read-only probes will be added after hardware validation.", 13f, MUTED))
+        }
+    }
+    private fun spiPage() {
+        panel(page, "SPI display lab") { p ->
+            p.addView(label("SPI devices cannot be discovered by I²C scanning. Select a physically verified display and confirm its wiring before sending commands.", 13f, MUTED))
+        }
+        panel(page, "GC9A01 · 240×240 round TFT") { p ->
+            p.addView(label("FT232H → TFT (3.3 V logic): D0 → SCL, D1 → SDA, D3 → CS, D4 → DC, D5 → RES, D6 → BLK, GND → GND. VCC: use a verified compatible regulated supply; never assume 5 V tolerance.", 13f, FG))
+            gap(p, 8)
+            p.addView(label("Disconnect I²C targets from D0/D1 before SPI testing. Backlight polarity and supply requirements vary between boards. Tests overwrite the display and cannot read its identity.", 12f, MUTED))
+            gap(p, 12)
+            p.addView(action("Run GC9A01 visual tests", !busy && !demo && driver != null) { confirmGc9a01() })
+        }
+        panel(page, "LAFVIN e-paper · SPI") { p ->
+            p.addView(label("SPI controller and BUSY-line timing require a separate panel-specific driver. Do not run GC9A01 commands on an e-paper module.", 13f, MUTED))
+        }
+    }
+    private fun confirmGc9a01() {
+        if (busy || demo || driver == null) return
+        val patterns = Gc9a01.Pattern.entries
+        val names = patterns.map { it.name.lowercase().replaceFirstChar { ch -> ch.uppercase() } }.toTypedArray() + "Full visual sequence"
+        android.app.AlertDialog.Builder(this)
+            .setTitle("GC9A01 display diagnostics")
+            .setItems(names) { _, choice ->
+                android.app.AlertDialog.Builder(this)
+                    .setTitle("Confirm SPI wiring and voltage")
+                    .setMessage("This test switches the FT232H from I²C to SPI mode, drives D0/D1/D3–D6, resets and initializes the display, and writes pixels. Disconnect other circuits and verify the 3.3 V logic and module supply. Continue?")
+                    .setNegativeButton("Cancel", null)
+                    .setPositiveButton("Run") { _, _ -> runGc9a01(if (choice == patterns.size) patterns else listOf(patterns[choice])) }
+                    .show()
+            }.show()
+    }
+    private fun runGc9a01(patterns: List<Gc9a01.Pattern>) {
+        val d = driver ?: return
+        if (busy || demo) return
+        busy = true
+        render()
+        thread {
+            val log = mutableListOf<String>()
+            val started = System.currentTimeMillis()
+            var success = false
+            try {
+                d.spiBegin()
+                log.add("SPI mode 0, 1 MHz, 3.3 V logic; D0=SCK D1=MOSI D3=CS D4=DC D5=RST D6=BLK")
+                Gc9a01.initialize(d)
+                log.add("GC9A01 initialization sent; panel identity not verified")
+                d.spiBacklight(true)
+                for (pattern in patterns) {
+                    val t = System.currentTimeMillis()
+                    Gc9a01.draw(d, pattern)
+                    log.add("${pattern.name}: 240x240 RGB565, 115200 bytes, ${System.currentTimeMillis() - t} ms, USB write completed")
+                    if (patterns.size > 1) Thread.sleep(750)
+                }
+                success = true
+            } catch (e: Exception) {
+                log.add("ERROR: ${e.javaClass.simpleName}: ${e.message}")
+            } finally {
+                try { d.spiEnd() } catch (e: Exception) { log.add("SPI cleanup: ${e.message}") }
+                log.add("Elapsed ${System.currentTimeMillis() - started} ms; visual verification required")
+                handler.post {
+                    busy = false
+                    render()
+                    android.app.AlertDialog.Builder(this)
+                        .setTitle(if (success) "GC9A01 commands completed" else "GC9A01 test failed")
+                        .setMessage(log.joinToString("\\n"))
+                        .setNeutralButton("Copy log") { _, _ ->
+                            val clipboard = getSystemService(CLIPBOARD_SERVICE) as android.content.ClipboardManager
+                            clipboard.setPrimaryClip(ClipData.newPlainText("GC9A01 test", log.joinToString("\\n")))
+                        }
+                        .setPositiveButton("Close", null).show()
+                }
+            }
         }
     }
     private fun guidePage() {

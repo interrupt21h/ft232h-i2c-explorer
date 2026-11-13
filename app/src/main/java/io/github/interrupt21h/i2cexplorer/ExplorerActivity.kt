@@ -240,6 +240,11 @@ class ExplorerActivity : Activity() {
                 p.addView(label(profile.note, 13f, MUTED))
             }
         }
+        if (selected == 0x63) panel(host, "Si4713 live diagnostics") { p ->
+            p.addView(label("Status/CTS and GET_REV firmware response. Does not enable RF transmission or power up the chip. Requires a correctly powered Si4713; read commands can affect command state.", 13f, MUTED))
+            gap(p, 8)
+            p.addView(action("Run detailed Si4713 tests", !busy && !demo && driver != null) { confirmSi4713Test() })
+        }
         panel(host, "Device-specific diagnostics") { p ->
             val tests = diagnostics.filter { it.address == selected }
             if (tests.isEmpty()) p.addView(label("No read-only register recipe for this address. Command-based devices require a dedicated protocol.", 13f, MUTED))
@@ -334,6 +339,34 @@ class ExplorerActivity : Activity() {
                 handler.post { busy = false; toast("Scan error: ${e.message}"); render() }
             }
         }
+    }
+    private fun confirmSi4713Test() {
+        if (busy || demo || driver == null) return
+        android.app.AlertDialog.Builder(this)
+            .setTitle("Si4713 hardware diagnostics")
+            .setMessage("Run status and GET_REV commands at 0x63? These are non-transmitting tests but send a command and require the chip to be powered and ready. No POWER_UP or TX commands are sent.")
+            .setNegativeButton("Cancel", null)
+            .setPositiveButton("Run tests") { _, _ ->
+                val d = driver ?: return@setPositiveButton
+                busy = true
+                render()
+                thread {
+                    val bus = object : Si47xxBus {
+                        override fun read(address: Int, length: Int) = d.readRaw(address, length)
+                        override fun write(address: Int, bytes: ByteArray) = d.writeCommand(address, bytes)
+                    }
+                    val report = try { Si4713Diagnostics.run(bus) } catch (e: Exception) {
+                        DiagnosticReport("si4713-live", "Si4713 diagnostics", 0x63, System.currentTimeMillis(),
+                            listOf(StepResult("Execution", TestStatus.ERROR, emptyList(), e.message ?: "Unknown failure")), emptyList())
+                    }
+                    handler.post {
+                        busy = false
+                        lastReport = report
+                        render()
+                        showReport(report)
+                    }
+                }
+            }.show()
     }
     private fun confirmOledTest() {
         if (driver == null || demo || busy) return

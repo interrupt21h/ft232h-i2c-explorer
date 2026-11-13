@@ -41,6 +41,7 @@ private val profiles = listOf(
     Profile("PCA9685", "PWM controller", setOf(0x40, 0x41, 0x42, 0x43, 0x44, 0x45, 0x46, 0x47, 0x48, 0x49, 0x4A, 0x4B, 0x4C, 0x4D, 0x4E, 0x4F), "Configurable address; may respond to broadcast address"),
     Profile("VL53L0X", "Distance sensor", setOf(0x29), "Default address may be changed by firmware"),
     Profile("AHT20 / AHT21", "Temperature / humidity", setOf(0x38), "Command-oriented sensor"),
+    Profile("GC9A01 1.28-inch 240×240 round TFT", "SPI display (not I²C)", emptySet(), "Photo-marked GC9A01 240×240 round TFT. Pins: GND, VCC, SCL/SCK, SDA/MOSI, RES, DC, CS, BLK. Requires an SPI/MPSSE driver and GPIO control; not discoverable by I²C address scans. Use 3.3 V logic; verify module supply rating."),
     Profile("LAFVIN 2.13-inch 250×122 e-paper HAT", "SPI display (not I²C)", emptySet(), "Uses DIN, CLK, CS, DC, RST and BUSY; not detectable by I²C scanning. Needs an explicit SPI profile and control pins.")
 )
 

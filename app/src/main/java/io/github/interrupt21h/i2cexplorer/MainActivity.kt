@@ -145,6 +145,42 @@ class Ft232h(manager: UsbManager, device: UsbDevice) : AutoCloseable {
         gpio(false,true)
         return ack
     }
+    private fun readByte(ack: Boolean): Int {
+        var value = 0
+        gpio(false, true)
+        for (bit in 7 downTo 0) {
+            gpio(true, true)
+            if (pins() and 0x04 != 0) value = value or (1 shl bit)
+            gpio(false, true)
+        }
+        gpio(false, !ack)
+        gpio(true, !ack)
+        gpio(false, true)
+        return value
+    }
+    /** Atomic I2C transaction with repeated START; register address is one byte. */
+    @Synchronized fun readRegister(address: Int, register: Int, count: Int = 1): ByteArray {
+        require(address in 0x08..0x77 && register in 0..255 && count in 1..32)
+        start()
+        try {
+            if (!byte(address shl 1)) throw IOException("Address write NACK")
+            if (!byte(register)) throw IOException("Register NACK")
+            start()
+            if (!byte((address shl 1) or 1)) throw IOException("Address read NACK")
+            return ByteArray(count) { readByte(it < count - 1).toByte() }
+        } finally { stop() }
+    }
+    /** Command-only write, for explicitly confirmed diagnostic actions. */
+    @Synchronized fun writeCommand(address: Int, command: ByteArray) {
+        require(address in 0x08..0x77 && command.size in 1..32)
+        start()
+        try {
+            if (!byte(address shl 1)) throw IOException("Address NACK")
+            command.forEachIndexed { index, b ->
+                if (!byte(b.toInt() and 255)) throw IOException("Data NACK at byte $index")
+            }
+        } finally { stop() }
+    }
     @Synchronized fun probe(address:Int):Boolean {
         require(address in 0x08..0x77)
         start()

@@ -224,6 +224,7 @@ class ExplorerActivity : Activity() {
         page.addView(matches)
         renderDeviceMatches()
     }
+    private var lastReport: DiagnosticReport? = null
     private var matches: LinearLayout? = null
     private fun renderDeviceMatches() {
         val host = matches ?: return
@@ -251,6 +252,24 @@ class ExplorerActivity : Activity() {
                 p.addView(label(test.name, 14f, FG, true)); gap(p, 4)
                 p.addView(label(test.description, 12f, MUTED)); gap(p, 8)
                 p.addView(action("Read register 0x%02X".format(test.register), !busy && !demo && driver != null) { runDiagnostic(test) }); gap(p, 12)
+            }
+        }
+        panel(host, "Reusable test suites") { p ->
+            val suites = DiagnosticCatalog.forAddress(selected)
+            if (suites.isEmpty()) p.addView(label("No test suites at this address.", 13f, MUTED))
+            suites.forEach { suite ->
+                p.addView(label(suite.name, 15f, FG, true))
+                gap(p, 4)
+                p.addView(label(suite.description, 12f, MUTED))
+                gap(p, 8)
+                p.addView(action(if (suite.steps.isEmpty()) "View test availability" else "Run read-only suite",
+                    !busy && (suite.steps.isEmpty() || (!demo && driver != null))) { executeSuite(suite) })
+                gap(p, 12)
+            }
+            lastReport?.let { report ->
+                if (report.address == selected) {
+                    p.addView(secondary("View last test results") { showReport(report) })
+                }
             }
         }
         panel(host, "Identification policy") { p ->
@@ -390,6 +409,57 @@ class ExplorerActivity : Activity() {
                 handler.post { busy = false; toast("Diagnostic failed: ${e.message}"); render() }
             }
         }
+    }
+    private fun executeSuite(suite: DeviceSuite) {
+        val address = selected
+        if (suite.steps.isEmpty()) {
+            val report = DiagnosticReport(suite.id, suite.name, address, System.currentTimeMillis(),
+                listOf(StepResult("Availability", TestStatus.INFO, emptyList(), suite.description)), emptyList())
+            lastReport = report
+            showReport(report)
+            return
+        }
+        val d = driver ?: return
+        if (busy || demo) return
+        busy = true
+        render()
+        thread {
+            val bus = object : DiagnosticBus {
+                override fun probe(address: Int): Boolean = d.probe(address)
+                override fun readRegister(address: Int, register: Int, length: Int): ByteArray =
+                    d.readRegister(address, register, length)
+                override fun write(address: Int, payload: ByteArray) = d.writeCommand(address, payload)
+            }
+            val report = DiagnosticEngine(bus).run(suite, address)
+            handler.post {
+                busy = false
+                lastReport = report
+                render()
+                showReport(report)
+            }
+        }
+    }
+    private fun showReport(report: DiagnosticReport) {
+        val summary = buildString {
+            append(report.suiteName).append("\\nAddress: 0x%02X".format(report.address))
+            report.results.forEach { result ->
+                append("\\n\\n").append(result.status).append(" · ").append(result.name)
+                append("\\n").append(result.message)
+            }
+            if (report.transcript.isNotEmpty()) {
+                append("\\n\\nTransaction log:\\n").append(report.transcript.joinToString("\\n"))
+            }
+        }
+        android.app.AlertDialog.Builder(this)
+            .setTitle("Diagnostic results")
+            .setMessage(summary)
+            .setNegativeButton("Close", null)
+            .setNeutralButton("Copy JSON") { _, _ ->
+                val clipboard = getSystemService(CLIPBOARD_SERVICE) as android.content.ClipboardManager
+                clipboard.setPrimaryClip(ClipData.newPlainText("I2C diagnostic report", report.toJson()))
+                toast("JSON report copied")
+            }
+            .show()
     }
     private fun toast(message: String) = Toast.makeText(this, message, Toast.LENGTH_LONG).show()
     override fun onDestroy() {

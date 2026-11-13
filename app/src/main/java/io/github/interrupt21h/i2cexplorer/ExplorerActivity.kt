@@ -441,13 +441,13 @@ class ExplorerActivity : Activity() {
     }
     private fun showReport(report: DiagnosticReport) {
         val summary = buildString {
-            append(report.suiteName).append("\\nAddress: 0x%02X".format(report.address))
+            append(report.suiteName).append("\nAddress: 0x%02X".format(report.address))
             report.results.forEach { result ->
-                append("\\n\\n").append(result.status).append(" · ").append(result.name)
-                append("\\n").append(result.message)
+                append("\n\n").append(result.status).append(" · ").append(result.name)
+                append("\n").append(result.message)
             }
             if (report.transcript.isNotEmpty()) {
-                append("\\n\\nTransaction log:\\n").append(report.transcript.joinToString("\\n"))
+                append("\n\nTransaction log:\n").append(report.transcript.joinToString("\n"))
             }
         }
         android.app.AlertDialog.Builder(this)

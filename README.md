@@ -2,6 +2,18 @@
 
 A native Android I²C bus explorer for FT232H USB-C breakout boards (including PAMEENCOS), with an offline demonstration interface.
 
+## Download the latest Android APK
+
+**[⬇ Download the latest successful APK build](https://github.com/interrupt21h/ft232h-i2c-explorer/actions/workflows/android.yml?query=branch%3Amain+is%3Asuccess)**
+
+Open the top successful workflow run, scroll to **Artifacts**, and download **ft232h-i2c-explorer-debug-apk**. Extract the ZIP and install the APK on Android. GitHub login and repository access are required because this repository is private. Artifacts expire after 30 days; use the newest successful run.
+
+[All build runs](https://github.com/interrupt21h/ft232h-i2c-explorer/actions/workflows/android.yml) · [Latest main branch source](https://github.com/interrupt21h/ft232h-i2c-explorer/tree/main)
+
+## Si4713 live diagnostics
+
+Select **Devices → 0x63 → Run detailed Si4713 tests**. The confirmation-gated suite records a raw status byte (CTS/ERR flags), sends the non-transmitting `GET_REV (0x10)` command only when CTS is ready, polls for completion, reads its 9-byte firmware response, and exports a verbose JSON transcript. It does **not** issue POWER_UP, tune, or RF transmission commands. An unpowered device may NACK or remain unready; this is reported rather than automatically activating the transmitter. A live ACK does not prove chip identity. Six JVM tests cover ready, unready, transport failure, command error, short response and invalid address. Physical hardware validation remains outstanding.
+
 ## Interface
 
 - Dark, touch-friendly UI with **Bus scan**, **Devices**, and **Guide** tabs.

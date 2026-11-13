@@ -100,8 +100,6 @@ object DiagnosticCatalog {
             listOf(TestStep("Model ID", 0xC0, 1, setOf(0xEE), "Typical VL53L0X model ID is 0xEE")), "Read-only sensor ID"),
         DeviceSuite("ssd1306", "SSD1306 OLED", setOf(0x3C, 0x3D), emptyList(),
             "No reliable read-only identification. Use the separately confirmed visual display test."),
-        DeviceSuite("si4713", "Si4713 FM transmitter", setOf(0x63), emptyList(),
-            "Command/response protocol requires a dedicated implementation; no generic register reads."),
         DeviceSuite("eeprom", "24xx EEPROM", (0x50..0x57).toSet(), emptyList(),
             "EEPROM addressing varies by density; no safe generic identification read.")
     )

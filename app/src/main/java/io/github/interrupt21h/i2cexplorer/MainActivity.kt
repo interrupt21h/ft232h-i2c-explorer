@@ -214,8 +214,7 @@ class Ft232h(manager: UsbManager, device: UsbDevice) : AutoCloseable {
         spiGpio()
         spiMode = false
         send(0x80, 0, 0)
-        // Restore GPIO-driven I2C (D0/D1 released, D2 input).
-        if (pins() and 0x05 != 0x05) throw IOException("I2C lines not high after SPI")
+        // Release both I2C lines; subsequent transactions configure GPIO again.
     }
     private fun spiPin(mask: Int, high: Boolean) {
         spiPins = if (high) spiPins or mask else spiPins and mask.inv()

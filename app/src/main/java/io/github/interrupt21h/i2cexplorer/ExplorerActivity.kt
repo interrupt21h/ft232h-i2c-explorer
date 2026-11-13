@@ -241,7 +241,12 @@ class ExplorerActivity : Activity() {
         }
         panel(host, "Device-specific diagnostics") { p ->
             val tests = diagnostics.filter { it.address == selected }
-            if (tests.isEmpty()) p.addView(label("No safe register-read recipe for this address yet. OLEDs, Si47xx radios, and other command-based devices require protocol-specific handling.", 13f, MUTED))
+            if (tests.isEmpty()) p.addView(label("No read-only register recipe for this address. Command-based devices require a dedicated protocol.", 13f, MUTED))
+            if (selected == 0x3C || selected == 0x3D) {
+                p.addView(label("SSD1306-compatible OLED display toggle", 14f, FG, true)); gap(p, 4)
+                p.addView(label("Explicitly writes display OFF then ON commands. Changes the screen, does not identify controller or resolution.", 12f, MUTED)); gap(p, 8)
+                p.addView(action("Run OLED display test", !busy && !demo && driver != null) { confirmOledTest() }); gap(p, 12)
+            }
             tests.forEach { test ->
                 p.addView(label(test.name, 14f, FG, true)); gap(p, 4)
                 p.addView(label(test.description, 12f, MUTED)); gap(p, 8)
@@ -310,6 +315,28 @@ class ExplorerActivity : Activity() {
                 handler.post { busy = false; toast("Scan error: ${e.message}"); render() }
             }
         }
+    }
+    private fun confirmOledTest() {
+        if (driver == null || demo || busy) return
+        android.app.AlertDialog.Builder(this)
+            .setTitle("OLED display test")
+            .setMessage("This test sends SSD1306-compatible DISPLAY OFF (AE) and DISPLAY ON (AF) commands to address 0x%02X. It changes the display state and may be incompatible with other devices at this address. Only continue if you know an OLED is connected.".format(selected))
+            .setNegativeButton("Cancel", null)
+            .setPositiveButton("Run test") { _, _ ->
+                val d = driver ?: return@setPositiveButton
+                val address = selected
+                busy = true; render()
+                thread {
+                    try {
+                        d.writeCommand(address, byteArrayOf(0x00, 0xAE.toByte()))
+                        Thread.sleep(350)
+                        d.writeCommand(address, byteArrayOf(0x00, 0xAF.toByte()))
+                        handler.post { busy = false; toast("OLED display OFF/ON commands sent; visually verify the screen"); render() }
+                    } catch (e: Exception) {
+                        handler.post { busy = false; toast("OLED test failed: ${e.message}"); render() }
+                    }
+                }
+            }.show()
     }
     private fun runDiagnostic(test: Diagnostic) {
         val d = driver ?: return

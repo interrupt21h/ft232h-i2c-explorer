@@ -43,6 +43,20 @@ private val profiles = listOf(
     Profile("LAFVIN 2.13-inch 250×122 e-paper HAT", "SPI display (not I²C)", emptySet(), "Uses DIN, CLK, CS, DC, RST and BUSY; not detectable by I²C scanning. Needs an explicit SPI profile and control pins.")
 )
 
+
+// Declarative diagnostics: no arbitrary code execution and no writes by default.
+private data class Diagnostic(val name: String, val address: Int, val register: Int, val length: Int, val description: String)
+private val diagnostics = listOf(
+    Diagnostic("BME280 / BMP280 chip ID", 0x76, 0xD0, 1, "0x60 BME280; 0x58 BMP280"),
+    Diagnostic("BME280 / BMP280 chip ID (alternate)", 0x77, 0xD0, 1, "0x60 BME280; 0x58 BMP280"),
+    Diagnostic("MPU6050 WHO_AM_I", 0x68, 0x75, 1, "Usually 0x68"),
+    Diagnostic("MPU6050 WHO_AM_I (alternate)", 0x69, 0x75, 1, "Usually 0x68"),
+    Diagnostic("INA219 configuration", 0x40, 0x00, 2, "Configuration read; not unique identification"),
+    Diagnostic("ADS1115 conversion register", 0x48, 0x00, 2, "ADC conversion value; not unique identification"),
+    Diagnostic("MCP23017 IODIRA", 0x20, 0x00, 1, "GPIO direction register; not unique identification"),
+    Diagnostic("DS3231 status", 0x68, 0x0F, 1, "Status flags; shared address with motion sensors")
+)
+
 class ExplorerActivity : Activity() {
     private lateinit var usb: UsbManager
     private lateinit var root: LinearLayout
@@ -225,6 +239,15 @@ class ExplorerActivity : Activity() {
                 p.addView(label(profile.note, 13f, MUTED))
             }
         }
+        panel(host, "Device-specific diagnostics") { p ->
+            val tests = diagnostics.filter { it.address == selected }
+            if (tests.isEmpty()) p.addView(label("No safe register-read recipe for this address yet. OLEDs, Si47xx radios, and other command-based devices require protocol-specific handling.", 13f, MUTED))
+            tests.forEach { test ->
+                p.addView(label(test.name, 14f, FG, true)); gap(p, 4)
+                p.addView(label(test.description, 12f, MUTED)); gap(p, 8)
+                p.addView(action("Read register 0x%02X".format(test.register), !busy && !demo && driver != null) { runDiagnostic(test) }); gap(p, 12)
+            }
+        }
         panel(host, "Identification policy") { p ->
             p.addView(label("Automatic identification is intentionally conservative. No registers are read or written during address scans. Device-specific read-only probes will be added after hardware validation.", 13f, MUTED))
         }
@@ -285,6 +308,27 @@ class ExplorerActivity : Activity() {
                 handler.post { detected = results.toSet(); busy = false; scanComplete = true; render() }
             } catch (e: Exception) {
                 handler.post { busy = false; toast("Scan error: ${e.message}"); render() }
+            }
+        }
+    }
+    private fun runDiagnostic(test: Diagnostic) {
+        val d = driver ?: return
+        if (busy || demo) return
+        busy = true
+        thread {
+            try {
+                val data = d.readRegister(test.address, test.register, test.length)
+                val hex = data.joinToString(" ") { "%02X".format(it.toInt() and 255) }
+                handler.post {
+                    busy = false
+                    android.app.AlertDialog.Builder(this)
+                        .setTitle(test.name)
+                        .setMessage("Address: 0x%02X\\nRegister: 0x%02X\\nResponse: %s\\n\\n%s\\n\\nA register response does not by itself prove chip identity.".format(test.address, test.register, hex, test.description))
+                        .setPositiveButton("Close", null).show()
+                    render()
+                }
+            } catch (e: Exception) {
+                handler.post { busy = false; toast("Diagnostic failed: ${e.message}"); render() }
             }
         }
     }

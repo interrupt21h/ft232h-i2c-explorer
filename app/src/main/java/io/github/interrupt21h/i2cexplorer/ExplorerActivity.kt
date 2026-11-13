@@ -97,7 +97,7 @@ class ExplorerActivity : Activity() {
             addAction(UsbManager.ACTION_USB_DEVICE_DETACHED)
         }
         if (Build.VERSION.SDK_INT >= 33) registerReceiver(receiver, filter, Context.RECEIVER_NOT_EXPORTED)
-        else @Suppress("DEPRECATION") registerReceiver(receiver, filter)
+        else @Suppress("DEPRECATION", "UnspecifiedRegisterReceiverFlag") registerReceiver(receiver, filter)
         selected = savedInstanceState?.getInt("selected", 0x63) ?: 0x63
         tab = savedInstanceState?.getInt("tab", 0) ?: 0
         render()

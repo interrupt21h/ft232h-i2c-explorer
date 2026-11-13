@@ -392,7 +392,6 @@ class ExplorerActivity : Activity() {
         )
         android.app.AlertDialog.Builder(this)
             .setTitle("SSD1306-compatible OLED tests")
-            .setMessage("Choose the physical panel resolution. These tests change display state and may overwrite its framebuffer. They are not safe device-identification probes.")
             .setItems(choices) { _, choice ->
                 android.app.AlertDialog.Builder(this)
                     .setTitle("Confirm hardware test")

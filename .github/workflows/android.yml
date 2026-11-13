@@ -37,9 +37,9 @@ jobs:
       - name: Build and test
         run: gradle --no-daemon :app:lintDebug :app:testDebugUnitTest :app:assembleDebug
       - uses: actions/upload-artifact@v4
-        if: always()
+        if: success()
         with:
           name: ft232h-i2c-explorer-debug-apk
           path: app/build/outputs/apk/debug/*.apk
-          if-no-files-found: ignore
+          if-no-files-found: error
           retention-days: 30

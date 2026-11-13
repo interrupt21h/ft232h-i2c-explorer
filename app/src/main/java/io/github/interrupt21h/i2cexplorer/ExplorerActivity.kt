@@ -10,6 +10,7 @@ import android.hardware.usb.*
 import android.os.*
 import android.view.*
 import android.widget.*
+import androidx.core.content.ContextCompat
 import java.util.Locale
 import kotlin.concurrent.thread
 
@@ -96,8 +97,7 @@ class ExplorerActivity : Activity() {
             addAction(USB_PERMISSION_ACTION)
             addAction(UsbManager.ACTION_USB_DEVICE_DETACHED)
         }
-        if (Build.VERSION.SDK_INT >= 33) registerReceiver(receiver, filter, Context.RECEIVER_NOT_EXPORTED)
-        else @Suppress("DEPRECATION") registerReceiver(receiver, filter)
+        ContextCompat.registerReceiver(this, receiver, filter, ContextCompat.RECEIVER_NOT_EXPORTED)
         selected = savedInstanceState?.getInt("selected", 0x63) ?: 0x63
         tab = savedInstanceState?.getInt("tab", 0) ?: 0
         render()

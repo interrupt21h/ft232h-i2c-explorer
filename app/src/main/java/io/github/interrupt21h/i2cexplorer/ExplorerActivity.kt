@@ -25,7 +25,9 @@ data class Profile(val name: String, val category: String, val addresses: Set<In
 private val profiles = listOf(
     Profile("Si4713", "FM transmitter", setOf(0x63), "Silicon Labs command/response protocol; address depends on SEN configuration"),
     Profile("Si4703", "FM receiver", setOf(0x10), "Silicon Labs radio; uses special register access sequence"),
-    Profile("SSD1306 / SH1106", "OLED display", setOf(0x3C, 0x3D), "Display controllers often share these addresses"),
+    Profile("SSD1306 128×64 OLED (HiLetgo 0.96-inch)", "I²C OLED display", setOf(0x3C, 0x3D), "Four-pin GND/VCC/SCL/SDA module. ACK confirms only the address; panel size and controller cannot be determined by scan."),
+    Profile("SSD1306 128×32 OLED (DSD TECH 0.91-inch)", "I²C OLED display", setOf(0x3C, 0x3D), "Four-pin GND/VCC/SCL/SDA module. Often 0x3C. 128×32 is a configuration choice, not an identifiable I²C property."),
+    Profile("SH1106 OLED", "I²C OLED display", setOf(0x3C, 0x3D), "Shares addresses and command similarities with SSD1306; do not assume the controller."),
     Profile("BME280 / BMP280", "Environmental sensor", setOf(0x76, 0x77), "Check read-only chip ID register 0xD0"),
     Profile("SHT3x", "Temperature / humidity", setOf(0x44, 0x45), "Command-based sensor"),
     Profile("ADS1115 / ADS1015", "ADC", (0x48..0x4B).toSet(), "Configurable address; no universal chip ID"),
@@ -37,7 +39,8 @@ private val profiles = listOf(
     Profile("INA219 / INA226", "Power monitor", (0x40..0x4F).toSet(), "Several compatible and unrelated devices share this range"),
     Profile("PCA9685", "PWM controller", setOf(0x40, 0x41, 0x42, 0x43, 0x44, 0x45, 0x46, 0x47, 0x48, 0x49, 0x4A, 0x4B, 0x4C, 0x4D, 0x4E, 0x4F), "Configurable address; may respond to broadcast address"),
     Profile("VL53L0X", "Distance sensor", setOf(0x29), "Default address may be changed by firmware"),
-    Profile("AHT20 / AHT21", "Temperature / humidity", setOf(0x38), "Command-oriented sensor")
+    Profile("AHT20 / AHT21", "Temperature / humidity", setOf(0x38), "Command-oriented sensor"),
+    Profile("LAFVIN 2.13-inch 250×122 e-paper HAT", "SPI display (not I²C)", emptySet(), "Uses DIN, CLK, CS, DC, RST and BUSY; not detectable by I²C scanning. Needs an explicit SPI profile and control pins.")
 )
 
 class ExplorerActivity : Activity() {
@@ -232,6 +235,12 @@ class ExplorerActivity : Activity() {
         }
         panel(page, "Compatibility") { p ->
             p.addView(label("FT232H MPSSE GPIO-driven I²C. Clock stretching and multi-master arbitration are unsupported. USB timing and electrical behavior require physical testing.", 13f, MUTED))
+        }
+        panel(page, "Your display modules") { p ->
+            p.addView(label("HiLetgo 0.96-inch 128×64 OLED: I²C, usually 0x3C/0x3D.", 13f, FG)); gap(p, 8)
+            p.addView(label("DSD TECH 0.91-inch 128×32 OLED: I²C, usually 0x3C/0x3D.", 13f, FG)); gap(p, 8)
+            p.addView(label("LAFVIN 2.13-inch e-paper HAT: SPI; will never appear in an I²C scan.", 13f, FG)); gap(p, 8)
+            p.addView(label("Two OLEDs with the same address cannot share a bus without an I²C multiplexer or address reconfiguration.", 13f, MUTED))
         }
         panel(page, "Device catalog") { p ->
             p.addView(label("${profiles.size} profiles for common sensors, radios, ADCs, expanders, displays, memories and controllers. Multiple candidate profiles may share the same address.", 13f, MUTED))

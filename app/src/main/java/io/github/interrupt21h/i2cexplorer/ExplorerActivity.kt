@@ -244,7 +244,7 @@ class ExplorerActivity : Activity() {
             if (tests.isEmpty()) p.addView(label("No read-only register recipe for this address. Command-based devices require a dedicated protocol.", 13f, MUTED))
             if (selected == 0x3C || selected == 0x3D) {
                 p.addView(label("SSD1306-compatible OLED display toggle", 14f, FG, true)); gap(p, 4)
-                p.addView(label("Explicitly writes display OFF then ON commands. Changes the screen, does not identify controller or resolution.", 12f, MUTED)); gap(p, 8)
+                p.addView(label("Choose 128×32 or 128×64 and draw checkerboard, stripes, or a blank screen. Also supports OFF/ON. Writes to the display; confirmation required.", 12f, MUTED)); gap(p, 8)
                 p.addView(action("Run OLED display test", !busy && !demo && driver != null) { confirmOledTest() }); gap(p, 12)
             }
             tests.forEach { test ->
@@ -318,25 +318,57 @@ class ExplorerActivity : Activity() {
     }
     private fun confirmOledTest() {
         if (driver == null || demo || busy) return
+        val choices = arrayOf(
+            "128×32 · checkerboard",
+            "128×32 · vertical stripes",
+            "128×32 · clear screen",
+            "128×64 · checkerboard",
+            "128×64 · vertical stripes",
+            "128×64 · clear screen",
+            "Display OFF → ON (no framebuffer change)"
+        )
         android.app.AlertDialog.Builder(this)
-            .setTitle("OLED display test")
-            .setMessage("This test sends SSD1306-compatible DISPLAY OFF (AE) and DISPLAY ON (AF) commands to address 0x%02X. It changes the display state and may be incompatible with other devices at this address. Only continue if you know an OLED is connected.".format(selected))
-            .setNegativeButton("Cancel", null)
-            .setPositiveButton("Run test") { _, _ ->
-                val d = driver ?: return@setPositiveButton
-                val address = selected
-                busy = true; render()
-                thread {
-                    try {
-                        d.writeCommand(address, byteArrayOf(0x00, 0xAE.toByte()))
-                        Thread.sleep(350)
-                        d.writeCommand(address, byteArrayOf(0x00, 0xAF.toByte()))
-                        handler.post { busy = false; toast("OLED display OFF/ON commands sent; visually verify the screen"); render() }
-                    } catch (e: Exception) {
-                        handler.post { busy = false; toast("OLED test failed: ${e.message}"); render() }
-                    }
-                }
+            .setTitle("SSD1306-compatible OLED tests")
+            .setMessage("Choose the physical panel resolution. These tests change display state and may overwrite its framebuffer. They are not safe device-identification probes.")
+            .setItems(choices) { _, choice ->
+                android.app.AlertDialog.Builder(this)
+                    .setTitle("Confirm hardware test")
+                    .setMessage("Only proceed with a known SSD1306-compatible OLED at 0x%02X. The test writes commands/data, may take time on the experimental USB driver, and may not work on SH1106 modules.".format(selected))
+                    .setNegativeButton("Cancel", null)
+                    .setPositiveButton("Run test") { _, _ -> runOledTest(choice) }
+                    .show()
             }.show()
+    }
+    private fun runOledTest(choice: Int) {
+        val d = driver ?: return
+        if (busy || demo) return
+        val address = selected
+        busy = true
+        render()
+        thread {
+            try {
+                if (choice == 6) {
+                    d.writeCommand(address, byteArrayOf(0x00, 0xAE.toByte()))
+                    Thread.sleep(350)
+                    d.writeCommand(address, byteArrayOf(0x00, 0xAF.toByte()))
+                } else {
+                    val height = if (choice < 3) 32 else 64
+                    val pattern = when (choice % 3) {
+                        0 -> OledDiagnostics.Pattern.CHECKERBOARD
+                        1 -> OledDiagnostics.Pattern.VERTICAL_STRIPES
+                        else -> OledDiagnostics.Pattern.ALL_OFF
+                    }
+                    OledDiagnostics.draw(d, address, height, pattern)
+                }
+                handler.post {
+                    busy = false
+                    toast("Commands sent. Verify the OLED visually; device identity is unconfirmed.")
+                    render()
+                }
+            } catch (e: Exception) {
+                handler.post { busy = false; toast("OLED test failed: ${e.message}"); render() }
+            }
+        }
     }
     private fun runDiagnostic(test: Diagnostic) {
         val d = driver ?: return

@@ -195,6 +195,64 @@ class Ft232h(manager: UsbManager, device: UsbDevice) : AutoCloseable {
         start()
         return try { byte(address shl 1) } finally { stop() }
     }
+    // SPI mode 0: D0=SCK, D1=MOSI, D3=CS, D4=DC, D5=RST, D6=BLK.
+    // FT232H USB transport and GPIO ownership are exclusive to this driver.
+    private var spiMode = false
+    private var spiPins = 0x78 // CS, DC, RST, BLK high; SCK/MOSI low
+    private fun spiGpio() = send(0x80, spiPins, 0x7b)
+    @Synchronized fun spiBegin() {
+        check(!closed)
+        // Disable I2C open-drain configuration and set 1 MHz SPI clock.
+        send(0x8a, 0x97, 0x8d, 0x86, 29, 0, 0x85)
+        spiMode = true
+        spiPins = 0x78
+        spiGpio()
+    }
+    @Synchronized fun spiEnd() {
+        if (!spiMode) return
+        spiPins = 0x78
+        spiGpio()
+        spiMode = false
+        send(0x80, 0, 0)
+        // Restore GPIO-driven I2C (D0/D1 released, D2 input).
+        if (pins() and 0x05 != 0x05) throw IOException("I2C lines not high after SPI")
+    }
+    private fun spiPin(mask: Int, high: Boolean) {
+        spiPins = if (high) spiPins or mask else spiPins and mask.inv()
+        spiGpio()
+    }
+    @Synchronized fun spiReset() {
+        check(spiMode)
+        spiPin(0x20, false)
+        Thread.sleep(20)
+        spiPin(0x20, true)
+        Thread.sleep(120)
+    }
+    @Synchronized fun spiBacklight(on: Boolean) {
+        check(spiMode)
+        spiPin(0x40, on)
+    }
+    @Synchronized fun spiWrite(command: Boolean, bytes: ByteArray) {
+        check(spiMode)
+        if (bytes.isEmpty()) return
+        spiPin(0x10, !command)
+        spiPin(0x08, false)
+        try {
+            // MPSSE 0x11: MSB first, data clocked out on falling edge.
+            var offset = 0
+            while (offset < bytes.size) {
+                val count = minOf(1024, bytes.size - offset)
+                val packet = ByteArray(count + 3)
+                packet[0] = 0x11
+                packet[1] = ((count - 1) and 255).toByte()
+                packet[2] = ((count - 1) shr 8).toByte()
+                bytes.copyInto(packet, 3, offset, offset + count)
+                if (conn.bulkTransfer(tx, packet, packet.size, 3000) != packet.size)
+                    throw IOException("SPI USB transfer failed at byte $offset")
+                offset += count
+            }
+        } finally { spiPin(0x08, true) }
+    }
     override fun close() {
         if(closed)return
         closed=true

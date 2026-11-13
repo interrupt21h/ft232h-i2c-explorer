@@ -41,11 +41,11 @@ object Si4713Diagnostics {
                 bus.write(address, byteArrayOf(0x10))
                 var status = 0
                 var ready = false
-                repeat(10) {
+                for (attempt in 0 until 10) {
                     val response = bus.read(address, 1)
                     if (response.size != 1) throw IOException("Short CTS response")
                     status = response[0].toInt() and 255
-                    if ((status and 0x80) != 0) { ready = true; return@repeat }
+                    if ((status and 0x80) != 0) { ready = true; break }
                     Thread.sleep(10)
                 }
                 if (!ready) throw IOException("GET_REV CTS timeout")

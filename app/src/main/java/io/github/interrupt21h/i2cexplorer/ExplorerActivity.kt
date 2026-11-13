@@ -365,10 +365,10 @@ class ExplorerActivity : Activity() {
                     render()
                     android.app.AlertDialog.Builder(this)
                         .setTitle(if (success) "GC9A01 commands completed" else "GC9A01 test failed")
-                        .setMessage(log.joinToString("\\n"))
+                        .setMessage(log.joinToString("\n"))
                         .setNeutralButton("Copy log") { _, _ ->
                             val clipboard = getSystemService(CLIPBOARD_SERVICE) as android.content.ClipboardManager
-                            clipboard.setPrimaryClip(ClipData.newPlainText("GC9A01 test", log.joinToString("\\n")))
+                            clipboard.setPrimaryClip(ClipData.newPlainText("GC9A01 test", log.joinToString("\n")))
                         }
                         .setPositiveButton("Close", null).show()
                 }

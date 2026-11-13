@@ -155,7 +155,7 @@ class ExplorerActivity : Activity() {
             nav.addView(t, LinearLayout.LayoutParams(0, -2, 1f))
         }
         root.addView(nav)
-        val scroll = ScrollView(this).apply { fillViewport = true }
+        val scroll = ScrollView(this).apply { isFillViewport = true }
         page = column().apply { setPadding(dp(16), dp(4), dp(16), dp(24)) }
         scroll.addView(page); root.addView(scroll, LinearLayout.LayoutParams(-1, 0, 1f))
         setContentView(root)

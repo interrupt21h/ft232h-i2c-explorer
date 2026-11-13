@@ -170,6 +170,15 @@ class Ft232h(manager: UsbManager, device: UsbDevice) : AutoCloseable {
             return ByteArray(count) { readByte(it < count - 1).toByte() }
         } finally { stop() }
     }
+    /** Raw I2C read, for command/response devices such as Si47xx. */
+    @Synchronized fun readRaw(address: Int, count: Int): ByteArray {
+        require(address in 0x08..0x77 && count in 1..32)
+        start()
+        try {
+            if (!byte((address shl 1) or 1)) throw IOException("Address read NACK")
+            return ByteArray(count) { readByte(it < count - 1).toByte() }
+        } finally { stop() }
+    }
     /** Command-only write, for explicitly confirmed diagnostic actions. */
     @Synchronized fun writeCommand(address: Int, command: ByteArray) {
         require(address in 0x08..0x77 && command.size in 1..32)
